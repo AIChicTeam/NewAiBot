@@ -1,81 +1,49 @@
-# NewAiBot Setup Instructions
-
-Перед началом убедитесь, что у вас установлено:
-
-- **Python 3.10 или выше**
-- **Git**
-- **Telegram bot token** от [@BotFather](https://t.me/BotFather)
-- **Stripe account** (опционально для тестирования платежей)
-- **Stripe CLI** (опционально)
-- **RunPod API Key** (если тестируете генерацию аватаров с помощью LoRA)
-
----
-
-📦 1. Clone the Repository
-
+1. Клонируйте репозиторий:
 git clone https://github.com/AIChicTeam/NewAiBot.git
 cd NewAiBot
-🐍 2. Create and Activate Virtual Environment
 
+2. Создайте и активируйте виртуальное окружение:
 python -m venv venv
-Then activate it:
 
-PowerShell:
+   PowerShell:
+   .\venv\Scripts\Activate.ps1
 
-.\venv\Scripts\Activate.ps1
-CMD:
+   CMD:
+   venv\Scripts\activate.bat
 
-venv\Scripts\activate.bat
-📥 3. Install Dependencies
-
+3. Установите зависимости:
 pip install -r requirements.txt
-🔐 4. Set Up Environment Variables
-Create a file named .env in the project root:
 
-
+4. Создайте файл .env в корне проекта и добавьте:
 BOT_TOKEN=your_telegram_bot_token
 STRIPE_SECRET_KEY=your_stripe_secret_key
 STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
 DOMAIN_NAME=localhost
 RUNPOD_API_KEY=your_runpod_api_key
-⚠️ Never commit this file to GitHub.
 
-🗃 5. Initialize the Local Database
-This will create bot.db with all necessary tables:
+(Никогда не коммитьте этот файл в GitHub)
 
-
+5. Инициализируйте локальную базу данных (создаст bot.db):
 python -c "import asyncio; from database import init_db; asyncio.run(init_db())"
-🚀 6. Start the Bot
 
+6. Запустите бота:
 python bot.py
-Your bot will be live. Go to Telegram and press /start.
+(Затем откройте Telegram и нажмите /start)
 
-💳 7. (Optional) Stripe Test Setup
-In one terminal:
+7. (Опционально) Тест Stripe:
+   В одном терминале запустите:
+   uvicorn stripe_server:app --reload
 
+   В другом терминале:
+   stripe login
+   stripe listen --forward-to localhost:8000/webhook
 
-uvicorn stripe_server:app --reload
-In another terminal:
+8. Тест бота:
+   - Загрузите 10 фотографий
+   - Дождитесь генерации аватара
+   - Попробуйте выбрать стиль или отправить prompt
 
-
-stripe login
-stripe listen --forward-to localhost:8000/webhook
-Now payments in Stripe will notify the bot.
-
-🧪 8. Test the Bot
-Run /start
-
-Upload 10 photos
-
-Wait for the avatar to be “generated”
-
-Choose a style or send a prompt
-
-Bot will simulate image generation and decrease your generation credits
-
-📁 9. Files and Folders
-user_photos/ — stores uploaded user images
-
-user_results/ — stores generated avatars (or simulated files)
-
-bot.db — stores user photos, payments, generation credits, referrals
+9. Файлы и папки:
+user_photos/ — хранит загруженные фото
+user_results/ — хранит результаты генерации
+bot.db — база данных с информацией о пользователях, платежах и т. д.
