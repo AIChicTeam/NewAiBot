@@ -25,7 +25,7 @@ main_menu = InlineKeyboardMarkup(
 def generate_payment_keyboard(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="💳 Pay now",
-            url=f"http://localhost:8000/create-checkout-session?telegram_user_id={user_id}"
+            text="💰 Pay with Crypto",
+            url=f"http://localhost:8000/create-crypto-invoice?telegram_user_id={user_id}"
         )]
     ])

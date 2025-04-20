@@ -4,7 +4,7 @@ import shutil
 import paramiko
 from aiogram import Bot
 from asyncio import sleep
-from runpod_start import ensure_pod_ready  # Adjusted import path
+from utils.runpod_start import ensure_pod_ready  # Adjusted import path
 
 # === CONFIG ===
 ssh_host = "104.129.132.157"
