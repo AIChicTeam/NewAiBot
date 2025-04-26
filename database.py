@@ -16,8 +16,8 @@ async def init_db():
         )
         """)
         await db.execute("""
-            CREATE TABLE IF NOT EXISTS payment (
-            telegram_user_id INTEGER,
+        CREATE TABLE IF NOT EXISTS payment (
+            telegram_user_id INTEGER UNIQUE,
             invoice_id TEXT UNIQUE,
             payment_id TEXT UNIQUE,
             status TEXT DEFAULT 'waiting'
