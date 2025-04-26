@@ -44,5 +44,5 @@ async def nowpayments_webhook(request: Request):
 # 🚀 Запуск
 if __name__ == "__main__":
     import uvicorn
-    print("🌐 IPN Server running at http://localhost:8001")
-    uvicorn.run("payments.webhook_server:app", host="0.0.0.0", port=8001, reload=True)
+    print("🌐 IPN Server running at http://localhost:8000")
+    uvicorn.run("payments.webhook_server:app", host="0.0.0.0", port=8000, reload=True)

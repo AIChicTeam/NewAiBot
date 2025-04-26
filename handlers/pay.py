@@ -42,7 +42,7 @@ async def handle_pay_crypto(callback: CallbackQuery):
         "pay_currency": "usdttrc20",
         "order_id": str(user_id),
         "order_description": "AI Photo Session",
-        "ipn_callback_url": "http://localhost:8001/nowpayments/ipn"  # <--- локальный IPN
+        "ipn_callback_url": "http://localhost:8000/nowpayments/ipn"  # <--- локальный IPN
     }
 
     headers = {
