@@ -2,8 +2,6 @@ version: '3.8'
 
 services:
   web:
-    build: 
-      context: .
       image: cerusber/telegram-bot:latest
     container_name: telegram_bot
     volumes:
