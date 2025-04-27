@@ -4,7 +4,7 @@ services:
   web:
     build: 
       context: .
-      dockerfile: Dockerfile
+      image: cerusber/telegram-bot:latest
     container_name: telegram_bot
     volumes:
       - .:/app
