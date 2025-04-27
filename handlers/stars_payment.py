@@ -1,11 +1,14 @@
 from aiogram import Router, F
-from aiogram.types import (
-    CallbackQuery, Message,
-    LabeledPrice, PreCheckoutQuery
-)
+from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 import aiosqlite
-from database import give_bonus_to_inviter, mark_user_paid_by_stars
+
+from database import (
+    get_credits,
+    give_credits,                
+    give_bonus_to_inviter,
+    mark_user_paid_by_stars,
+)
 
 router = Router()
 
@@ -23,17 +26,12 @@ async def pay_with_stars(callback: CallbackQuery):
         title="AI Photo Session",
         description=f"You are purchasing a photo session with {amount} stars",
         prices=prices,
-        provider_token="",  # обязательно пустой
+        provider_token="",  # your provider token
         payload=f"{amount}_stars",
         currency="XTR",
         reply_markup=kb.as_markup()
     )
     await callback.answer()
-
-@router.callback_query(F.data == "cancel_star_payment")
-async def cancel_star_payment(callback: CallbackQuery):
-    await callback.message.delete()
-    await callback.answer("❌ Payment cancelled.")
 
 @router.pre_checkout_query()
 async def on_pre_checkout(query: PreCheckoutQuery):
@@ -43,16 +41,13 @@ async def on_pre_checkout(query: PreCheckoutQuery):
 async def on_star_payment_success(message: Message):
     user_id = message.from_user.id
 
+    # 1) Обновляем статус оплаты в таблице payment
     await mark_user_paid_by_stars(user_id)
-    async with aiosqlite.connect("bot.db") as db:
-        await db.execute(
-            "INSERT OR REPLACE INTO generation_credits (user_id, remaining) VALUES (?, 100)",
-            (user_id,)
-        )
-        await db.commit()
 
+    # 2) Выдаём 100 кредитов на генерации
+    await give_credits(user_id, amount=100)
+
+    # 3) Бонус пригласившему
     await give_bonus_to_inviter(user_id)
 
-    await message.answer("✅ Payment successful! You can now upload your photos.")
-
-
+    await message.answer("✅ Payment successful! You now have 100 credits and can upload your photos.")

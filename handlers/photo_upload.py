@@ -1,132 +1,158 @@
-import os
-import io
-import shutil
-from asyncio import create_task  
+import aiosqlite
+from asyncio import create_task
+
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from image_utils import crop_center, resize_image, determine_target_size
-from database import get_payment_status, count_photos, exists_photo, save_photo
 from PIL import Image
-import aiosqlite
 
-from utils.avatar import generate_avatar_task  
+from image_utils import crop_center, resize_image, determine_target_size
+from database import (
+    get_payment_status,
+    count_photos,
+    exists_photo,
+    save_photo,            # now just records user_id, file_id, unique_id
+)
+from utils.avatar import generate_avatar_task
 
 router = Router()
+
 UPLOAD_PROGRESS_KEY = "upload_message_id"
+SUPPORTED_FILE_TYPES = ['image/jpeg', 'image/png']
 
 
 @router.callback_query(F.data == "upload_photos")
 async def handle_upload_click(callback: CallbackQuery, state: FSMContext):
+    """Starts the upload session by sending a progress message."""
     await callback.answer()
-    message = await callback.message.answer("📤 Upload your photos. Uploaded: 0/10")
-    await state.update_data(**{UPLOAD_PROGRESS_KEY: message.message_id})
+    msg = await callback.message.answer("📤 Upload your photos. Uploaded: 0/10")
+    await state.update_data(**{UPLOAD_PROGRESS_KEY: msg.message_id})
 
 
 @router.message(F.video)
 async def reject_video(message: Message):
+    """Reject any video files."""
     await message.answer("❗ Video uploads are not supported. Please send photos only.")
+
+
+@router.message(F.document)
+async def reject_non_photo(message: Message):
+    """Reject non-image documents by MIME type."""
+    if message.document.mime_type not in SUPPORTED_FILE_TYPES:
+        await message.answer(
+            f"❗ Unsupported file type: {message.document.mime_type}. Please upload JPEG or PNG."
+        )
 
 
 @router.message(F.photo)
 async def handle_photo(message: Message, state: FSMContext):
+    """Handle an incoming photo: dedupe, in‐memory process, record in DB, update progress."""
     user_id = message.chat.id
 
-    # Проверка оплаты
-    payment_status = await get_payment_status(user_id)
-    if payment_status != 'paid':
-        await message.answer("❗ Please pay before uploading photos.")
-        return
+    # 1) Ensure user has paid
+    if await get_payment_status(user_id) != 'paid':
+        return await message.answer("❗ Please pay before uploading photos.")
 
-    # Проверка лимита
+    # 2) Enforce 10‐photo limit
     current_count = await count_photos(user_id)
     if current_count >= 10:
-        await message.answer("✅ You already uploaded 10 photos.")
-        return
+        return await message.answer("✅ You already uploaded 10 photos.")
 
-    # Дубли
-    largest_photo = max(message.photo, key=lambda p: p.file_size)
-    file_id = largest_photo.file_id
-    unique_id = largest_photo.file_unique_id
+    # 3) Select the largest size and check duplicate
+    largest = max(message.photo, key=lambda p: p.file_size)
+    file_id   = largest.file_id
+    uniq_id   = largest.file_unique_id
 
-    if await exists_photo(user_id, unique_id):
-        await message.answer("⛔ This photo is already uploaded.")
-        return
+    if await exists_photo(user_id, uniq_id):
+        return await message.answer("⛔ This photo is already uploaded.")
 
-    # Обработка
+    # 4) Download + process image purely in memory
     try:
-        file = await message.bot.get_file(file_id)
-        downloaded = await message.bot.download_file(file.file_path)
+        # download raw bytes
+        f   = await message.bot.get_file(file_id)
+        bio = await message.bot.download_file(f.file_path)
 
-        image = Image.open(downloaded)
-        if image.mode != "RGB":
-            image = image.convert("RGB")
+        # open and normalize
+        img = Image.open(bio)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
 
-        target_size, target_aspect = determine_target_size(image)
-        image = crop_center(image, target_aspect)
-        image = resize_image(image, target_size)
+        # crop & resize
+        tgt_size, tgt_aspect = determine_target_size(img)
+        img = crop_center(img, tgt_aspect)
+        img = resize_image(img, tgt_size)
 
-        os.makedirs(f"user_photos/{user_id}", exist_ok=True)
-        save_path = f"user_photos/{user_id}/{unique_id}.jpg"
-        image.save(save_path, format="JPEG", quality=95)
-
-        await save_photo(user_id, file_id, unique_id, save_path)
-
-        updated_count = await count_photos(user_id)
-
-        # Получаем ID сообщения с прогрессом
-        data = await state.get_data()
-        upload_msg_id = data.get(UPLOAD_PROGRESS_KEY)
-
-        if upload_msg_id:
-            try:
-                if updated_count < 10:
-                    await message.bot.edit_message_text(
-                        chat_id=message.chat.id,
-                        message_id=upload_msg_id,
-                        text=f"📤 Uploaded: {updated_count}/10"
-                    )
-                else:
-                    await message.bot.edit_message_text(
-                        chat_id=message.chat.id,
-                        message_id=upload_msg_id,
-                        text="✅ All photos uploaded! Thank you!"
-                    )
-                    create_task(generate_avatar_task(user_id, message.bot))
-
-            except Exception as e:
-                print("⚠️ Error updating progress message:", e)
+        # 5) Record the upload in the DB only (no disk I/O)
+        #    `file_path` can be left empty since we no longer store it locally
+        await save_photo(user_id, file_id, uniq_id)
 
     except Exception as e:
-        await message.answer("❌ Error while processing photo.")
-        print("❌", e)
+        print("❌ Error processing photo:", e)
+        return await message.answer("❌ Error while processing photo. Try again later.")
+
+    # 6) Update the upload‐progress message
+    updated_count = await count_photos(user_id)
+    data          = await state.get_data()
+    prog_msg_id   = data.get(UPLOAD_PROGRESS_KEY)
+
+    if prog_msg_id:
+        try:
+            if updated_count < 10:
+                await message.bot.edit_message_text(
+                    chat_id=user_id,
+                    message_id=prog_msg_id,
+                    text=f"📤 Uploaded: {updated_count}/10"
+                )
+            else:
+                # exactly 10 photos now
+                await message.bot.edit_message_text(
+                    chat_id=user_id,
+                    message_id=prog_msg_id,
+                    text="✅ All photos uploaded! Generating your avatar…"
+                )
+                await message.answer("🤖 Your avatar is being generated… Please wait ⏳")
+
+                # launch the one‐time avatar generation
+                create_task(generate_avatar_task(user_id, message.bot))
+
+        except Exception as e:
+            print("⚠️ Error updating progress message:", e)
 
 
 @router.callback_query(F.data == "start_over")
 async def handle_start_over(callback: CallbackQuery, state: FSMContext):
+    """Clears all uploads and resets payment, but does not touch generation credits."""
     user_id = callback.from_user.id
 
-    # Удаление из БД
+    # 1) Remove all records of this user's photos
     async with aiosqlite.connect("bot.db") as db:
         await db.execute("DELETE FROM user_photo WHERE user_id = ?", (user_id,))
+        # 2) Force them to pay again for the next 10-photo→avatar cycle
+        await db.execute(
+            "UPDATE payment SET status = 'waiting' WHERE telegram_user_id = ?",
+            (user_id,)
+        )
         await db.commit()
-
-    # Удаление файлов
-    folder = f"user_photos/{user_id}"
-    if os.path.exists(folder):
-        shutil.rmtree(folder)
 
     await callback.answer()
 
-    # Автоматически отправляем новое сообщение прогресса
+    # 3) Start a fresh upload progress message
     msg = await callback.message.answer("📤 Upload your photos. Uploaded: 0/10")
-    await state.update_data(upload_message_id=msg.message_id)
+    await state.update_data(**{UPLOAD_PROGRESS_KEY: msg.message_id})
 
 
-async def safe_edit(bot, chat_id, message_id, new_text):
+async def safe_edit(bot, chat_id, message_id, new_text, new_markup=None):
     try:
+        # Получаем текущее сообщение
         current = await bot.get_message(chat_id, message_id)
-        if current.text != new_text:
-            await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=new_text)
+        
+        # Проверка изменения текста и разметки
+        if current.text != new_text or current.reply_markup != new_markup:
+            await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=new_text, reply_markup=new_markup)
+        else:
+            print("✅ No changes detected, skipping update.")
+    
     except Exception as e:
-        print("⚠️ Error updating progress message:", e)
+        print(f"⚠️ Error updating progress message: {e}")
+
+

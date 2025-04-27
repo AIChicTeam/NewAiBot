@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from fastapi import FastAPI, Request
-from database import get_user_id_by_payment_id, give_credits, is_payment_already_processed, mark_invoice_as_paid
+from database import get_credits, get_user_id_by_payment_id, give_credits, is_payment_already_processed, mark_invoice_as_paid
 import aiosqlite
 import asyncio
 

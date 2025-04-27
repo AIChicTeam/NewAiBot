@@ -5,6 +5,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_TOKEN
 from database import init_db
 from handlers import balance, invite, pay, prompt_tips, referral_stats, stars_payment, start, photo_upload, style_selection
+from utils import avatar
 
 # Создаем бота и диспетчер
 bot = Bot(
@@ -22,6 +23,7 @@ dp.include_router(referral_stats.router)
 dp.include_router(balance.router)
 dp.include_router(style_selection.router)
 dp.include_router(prompt_tips.router)
+dp.include_router(avatar.router)
 
 # Основная функция
 async def main():
