@@ -18,26 +18,5 @@ async def invite_friends(callback: CallbackQuery):
         "When your friends pay, you get bonus photo sessions!"
     )
 
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Back", callback_data="go_back")]
-        ]
-    )
-
-    await callback.message.answer(text, reply_markup=kb)
-    await callback.answer()
-
-@router.callback_query(F.data == "go_back")
-async def go_back(callback: CallbackQuery):
-    text = (
-        "📸 Photo studio in your pocket!\n\n"
-        "⏳ 40 seconds\n\n"
-        "Hello! I'm SnapGenie Bot 🤘\n"
-        "I'm an AI for creating photos with your face.\n\n"
-        f"🆔 Your Telegram ID: {callback.from_user.id}\n"
-        "(Use this ID for test payment setup)\n\n"
-        "Click a button below to begin!"
-    )
-
-    await callback.message.answer(text, reply_markup=get_main_menu())  # Corrected usage
+    await callback.message.answer(text)
     await callback.answer()

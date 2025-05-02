@@ -14,7 +14,7 @@ async def show_main_menu(message: Message):
     can_select_style = avatar_ready
 
     await message.answer(
-        "🔙 Back to Menu",
+        "🚀🚀🚀",
         reply_markup=get_main_menu(
             can_select_style=can_select_style
         )

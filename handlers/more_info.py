@@ -13,9 +13,9 @@ async def get_more_info(message: Message):
     kb.button(text="🛟 Support", url="https://t.me/your_support_bot")
     kb.adjust(2,1)
 
+    await message.answer("🚀🚀🚀",reply_markup=get_back_button())
+    
     await message.answer(
         "Choose anything you want:",
         reply_markup=kb.as_markup()
     )
-
-    await message.answer("Or push the back button to show the main menu",reply_markup=get_back_button())

@@ -1,11 +1,11 @@
 import os
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from dotenv import load_dotenv
 
 from database import get_credits, get_payment_status, give_credits, save_invoice, count_photos, check_if_avatar_exists  # ← расширили
-from keyboards.main_menu import get_main_menu                                         # ← добавили
+from keyboards.main_menu import get_main_menu, get_back_button                                       # ← добавили
 import aiohttp
 
 load_dotenv()
@@ -16,23 +16,24 @@ NOWPAYMENTS_API_URL = "https://api.nowpayments.io/v1/invoice"
 router = Router()
 
 
-@router.callback_query(F.data == "pay")
-async def handle_pay_selection(callback: CallbackQuery):
-    user_id = callback.from_user.id
+@router.message(F.text == "💳 Pay now")
+async def handle_pay_selection(message: Message):
+    user_id = message.from_user.id
     status  = await get_payment_status(user_id)
+
+    await message.answer("🚀🚀🚀", reply_markup=get_back_button())
 
     # 1) Если уже оплачено — сразу отдаем обновлённое меню
     if status in ("paid", "paid_by_stars"):
         photos_count  = await count_photos(user_id)
         avatar_ready  = await check_if_avatar_exists(user_id)
 
-        await callback.message.answer(
+        await message.answer(
             "✅ You already paid! What’s next?",
             reply_markup=get_main_menu(
                 can_select_style=avatar_ready
             )
         )
-        return await callback.answer()
 
     # 2) Выбор способа оплаты
     kb = InlineKeyboardBuilder()
@@ -40,8 +41,7 @@ async def handle_pay_selection(callback: CallbackQuery):
     kb.button(text="💫 Pay with Stars",  callback_data="pay_with_stars")
     kb.adjust(1)
 
-    await callback.message.answer("Choose a payment method:", reply_markup=kb.as_markup())
-    await callback.answer()
+    await message.answer("Choose a payment method:", reply_markup=kb.as_markup())
 
 
 @router.callback_query(F.data == "pay_crypto")
