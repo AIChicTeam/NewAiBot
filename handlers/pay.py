@@ -36,12 +36,13 @@ async def handle_pay_selection(message: Message):
         )
 
     # 2) Выбор способа оплаты
-    kb = InlineKeyboardBuilder()
-    kb.button(text="💰 Pay with Crypto", callback_data="pay_crypto")
-    kb.button(text="💫 Pay with Stars",  callback_data="pay_with_stars")
-    kb.adjust(1)
+    else:
+        kb = InlineKeyboardBuilder()
+        kb.button(text="💰 Pay with Crypto", callback_data="pay_crypto")
+        kb.button(text="💫 Pay with Stars",  callback_data="pay_with_stars")
+        kb.adjust(1)
 
-    await message.answer("Choose a payment method:", reply_markup=kb.as_markup())
+        await message.answer("Choose a payment method:", reply_markup=kb.as_markup())
 
 
 @router.callback_query(F.data == "pay_crypto")
