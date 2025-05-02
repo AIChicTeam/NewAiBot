@@ -6,7 +6,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
-from database import decrease_credits, get_credits
+from database import decrease_credits, get_credits, check_if_avatar_exists
 
 router = Router()
 
@@ -18,19 +18,25 @@ STYLES = [
 class PromptState(StatesGroup):
     waiting_for_custom_prompt = State()
 
-@router.callback_query(F.data == "select_style")
-async def select_style(callback: CallbackQuery):
-    kb = InlineKeyboardBuilder()
-    for style in STYLES:
-        kb.button(text=style, callback_data=f"style_{style}")
-    kb.button(text="💬 Custom Prompt", callback_data="custom_prompt")
-    kb.adjust(2)
+@router.message(F.text == "🎨 Select Style")
+async def select_style(message: Message):
+    user_id = message.from_user.id
 
-    await callback.message.answer(
-        "🎨 Choose a style or enter a custom prompt:",
-        reply_markup=kb.as_markup()
-    )
-    await callback.answer()
+    if(check_if_avatar_exists(user_id)):
+        kb = InlineKeyboardBuilder()
+        for style in STYLES:
+            kb.button(text=style, callback_data=f"style_{style}")
+        kb.button(text="💬 Custom Prompt", callback_data="custom_prompt")
+        kb.adjust(2)
+
+        await message.answer(
+            "🎨 Choose a style or enter a custom prompt:",
+            reply_markup=kb.as_markup()
+        )
+    else:
+        await message.answer(
+            "❌ You can't pick a style. You must first assemble an avatar"
+        )
 
 @router.callback_query(F.data.startswith("style_"))
 async def generate_with_style(callback: CallbackQuery):

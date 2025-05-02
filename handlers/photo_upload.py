@@ -147,7 +147,9 @@ async def confirm_start_over(callback: CallbackQuery, state: FSMContext):
         )
         await db.commit()
 
-    msg = await callback.message.answer("📤 Upload your photos. Uploaded: 0/10")
+    msg = await callback.message.answer("📤 Upload your photos. Uploaded: 0/10", 
+                                        reply_markup=get_main_menu(can_select_style=False))
+    
     await state.update_data(**{UPLOAD_PROGRESS_KEY: msg.message_id})
     await callback.message.edit_text("✅ Restarted. You can now upload photos again.")
     await callback.answer()
