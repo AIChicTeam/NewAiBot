@@ -1,32 +1,32 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
-def get_main_menu(can_select_style: bool = False) -> InlineKeyboardMarkup:
+def get_main_menu(can_select_style: bool = False) -> ReplyKeyboardMarkup:
     keyboard = [
         [
-            InlineKeyboardButton(text="📸 How it works?", callback_data="how_it_works"),
-            InlineKeyboardButton(text="📤 Upload photos", callback_data="upload_photos"),
+            KeyboardButton(text="📤 Upload photos"),
+            KeyboardButton(text="🧮 Balance"),
         ],
         [
-            InlineKeyboardButton(text="🎁 Invite friends", callback_data="invite_friends"),
-            InlineKeyboardButton(text="🛟 Support", url="https://t.me/your_support_bot"),
+            KeyboardButton(text="💳 Pay now"),
+            KeyboardButton(text="♻️ Start over"),
         ],
         [
-            InlineKeyboardButton(text="💳 Pay now", callback_data="pay"),
-            InlineKeyboardButton(text="🧮 Balance", callback_data="check_balance"),
-        ],
-        [
-            InlineKeyboardButton(text="♻️ Start over", callback_data="start_over"),
+            KeyboardButton(text = "More..."),            
         ],
     ]
 
     if can_select_style:
         keyboard.append([
-            InlineKeyboardButton(text="🎨 Select Style", callback_data="select_style"),
+            KeyboardButton(text="🎨 Select Style"),
         ])
 
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-
+def get_back_button() -> ReplyKeyboardMarkup:
+    keyboard = [
+        [KeyboardButton(text="↩Back")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 # Также оставим функцию оплаты, как у тебя:
 def generate_payment_keyboard(user_id: int) -> InlineKeyboardMarkup:

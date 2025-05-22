@@ -1,11 +1,11 @@
 import aiosqlite
 from asyncio import create_task
-
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from PIL import Image
-
+from keyboards.main_menu import get_back_button, get_main_menu
 from image_utils import crop_center, resize_image, determine_target_size
 from database import (
     get_payment_status,
@@ -21,11 +21,12 @@ UPLOAD_PROGRESS_KEY = "upload_message_id"
 SUPPORTED_FILE_TYPES = ['image/jpeg', 'image/png']
 
 
-@router.callback_query(F.data == "upload_photos")
-async def handle_upload_click(callback: CallbackQuery, state: FSMContext):
+@router.message(F.text == "📤 Upload photos")
+async def handle_upload_click(message: Message, state: FSMContext):
+    await message.answer("🚀🚀🚀", reply_markup= get_back_button())
+
     """Starts the upload session by sending a progress message."""
-    await callback.answer()
-    msg = await callback.message.answer("📤 Upload your photos. Uploaded: 0/10")
+    msg = await message.answer("📤 Upload your photos. Uploaded: 0/10")
     await state.update_data(**{UPLOAD_PROGRESS_KEY: msg.message_id})
 
 
@@ -119,27 +120,45 @@ async def handle_photo(message: Message, state: FSMContext):
             print("⚠️ Error updating progress message:", e)
 
 
-@router.callback_query(F.data == "start_over")
-async def handle_start_over(callback: CallbackQuery, state: FSMContext):
-    """Clears all uploads and resets payment, but does not touch generation credits."""
+def get_start_over_confirmation_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Yes", callback_data="confirm_start_over"),
+            InlineKeyboardButton(text="❌ No", callback_data="cancel_start_over")
+        ]
+    ])
+
+@router.message(F.text == "♻️ Start over")
+async def handle_start_over(message: Message):
+    await message.answer(
+        "Are you sure you want to start over? This will delete your uploaded photos and reset payment status.",
+        reply_markup=get_start_over_confirmation_keyboard()
+    )
+
+@router.callback_query(F.data == "confirm_start_over")
+async def confirm_start_over(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
 
-    # 1) Remove all records of this user's photos
     async with aiosqlite.connect("bot.db") as db:
         await db.execute("DELETE FROM user_photo WHERE user_id = ?", (user_id,))
-        # 2) Force them to pay again for the next 10-photo→avatar cycle
         await db.execute(
             "UPDATE payment SET status = 'waiting' WHERE telegram_user_id = ?",
             (user_id,)
         )
         await db.commit()
 
+    msg = await callback.message.answer("📤 Upload your photos. Uploaded: 0/10", 
+                                        reply_markup=get_main_menu(can_select_style=False))
+    
+    await state.update_data(**{UPLOAD_PROGRESS_KEY: msg.message_id})
+    await callback.message.edit_text("✅ Restarted. You can now upload photos again.")
     await callback.answer()
 
-    # 3) Start a fresh upload progress message
-    msg = await callback.message.answer("📤 Upload your photos. Uploaded: 0/10")
-    await state.update_data(**{UPLOAD_PROGRESS_KEY: msg.message_id})
 
+@router.callback_query(F.data == "cancel_start_over")
+async def cancel_start_over(callback: CallbackQuery):
+    await callback.message.edit_text("❌ Cancelled. No changes made.")
+    await callback.answer()
 
 async def safe_edit(bot, chat_id, message_id, new_text, new_markup=None):
     try:
