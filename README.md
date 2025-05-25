@@ -52,7 +52,7 @@ Activate it:
 
 ---
 
-### 3. Install Dependencies
+### 3. Install Dependencie
 ```bash
 pip install -r requirements.txt
 ```
